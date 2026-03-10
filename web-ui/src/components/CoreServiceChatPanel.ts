@@ -41,6 +41,21 @@ class CoreServiceFileViewer extends LitElement {
 
 	override async connectedCallback() {
 		super.connectedCallback();
+		await this.loadFile();
+	}
+
+	override async willUpdate(changed: Map<string, unknown>) {
+		if (changed.has("path") && changed.get("path") !== undefined) {
+			this.content = null;
+			this.mimeType = "text/plain";
+			this.artifactUrl = null;
+			this.loading = true;
+			await this.loadFile();
+		}
+	}
+
+	private async loadFile() {
+		if (!this.path) return;
 		const client = new CoreServiceClient(this.baseUrl);
 		const [result, artifactUrl] = await Promise.all([
 			client.getFileContent(this.path),
@@ -49,6 +64,8 @@ class CoreServiceFileViewer extends LitElement {
 		if (result) {
 			this.content = result.content;
 			this.mimeType = result.mimeType.split(";")[0].trim();
+		} else {
+			this.content = null;
 		}
 		this.artifactUrl = artifactUrl;
 		this.loading = false;

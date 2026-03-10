@@ -1,7 +1,7 @@
 {
-	"name": "octo",
+	"name": "pi-boi",
 	"version": "0.0.1",
-	"description": "octo agent",
+	"description": "boi agent",
 	"type": "module",
 	"bin": {
 		"octo": "dist/main.js"
@@ -40,7 +40,7 @@
 		"ai",
 		"agent"
 	],
-	"license": "UNLICENSED",
+	"license": "MIT",
 	"engines": {
 		"node": ">=20.0.0"
 	}
