@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@mariozechner/pi-agent-core": ["/Users/hau/Projects/pi-mono/packages/agent/dist/index.d.ts"],
+      "@mariozechner/pi-ai": ["/Users/hau/Projects/pi-mono/packages/ai/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}
