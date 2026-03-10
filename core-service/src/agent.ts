@@ -28,9 +28,10 @@ import { createMomTools, setUploadFunction } from "./tools/index.js";
 //   LLM_MODEL     — model id     (default: "gpt-4o-mini")
 //   LLM_BASE_URL  — custom API base URL (e.g. http://localhost:11434/v1 for Ollama)
 //   LLM_API_KEY   — API key (alternative to ~/.pi/mom/auth.json)
-const llmProvider = (process.env.LLM_PROVIDER || "openai") as Parameters<typeof getModel>[0];
+const llmProvider = process.env.LLM_PROVIDER || "openai";
 const llmModelId = process.env.LLM_MODEL || "gpt-4o-mini";
-const model = getModel(llmProvider, llmModelId as any);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const model = (getModel as (p: string, m: string) => ReturnType<typeof getModel>)(llmProvider, llmModelId);
 if (process.env.LLM_BASE_URL) {
 	model.baseUrl = process.env.LLM_BASE_URL;
 }
@@ -457,6 +458,10 @@ function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDi
 	// Create AuthStorage and ModelRegistry
 	// Auth stored outside workspace so agent can't access it
 	const authStorage = new AuthStorage(join(homedir(), ".pi", "mom", "auth.json"));
+	// Inject LLM_API_KEY so AgentSession's internal key lookup also finds it
+	if (process.env.LLM_API_KEY) {
+		authStorage.setRuntimeApiKey(llmProvider, process.env.LLM_API_KEY);
+	}
 	const modelRegistry = new ModelRegistry(authStorage);
 
 	// Create agent
