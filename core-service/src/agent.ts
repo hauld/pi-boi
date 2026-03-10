@@ -23,8 +23,17 @@ import type { BotContext, ChannelInfo, UserInfo } from "./types.js";
 import type { ChannelStore } from "./store.js";
 import { createMomTools, setUploadFunction } from "./tools/index.js";
 
-// Hardcoded model for now - TODO: make configurable (issue #63)
-const model = getModel("openai", "gpt-4o-mini");
+// Model configuration via environment variables:
+//   LLM_PROVIDER  — provider name (default: "openai")
+//   LLM_MODEL     — model id     (default: "gpt-4o-mini")
+//   LLM_BASE_URL  — custom API base URL (e.g. http://localhost:11434/v1 for Ollama)
+//   LLM_API_KEY   — API key (alternative to ~/.pi/mom/auth.json)
+const llmProvider = (process.env.LLM_PROVIDER || "openai") as Parameters<typeof getModel>[0];
+const llmModelId = process.env.LLM_MODEL || "gpt-4o-mini";
+const model = getModel(llmProvider, llmModelId as any);
+if (process.env.LLM_BASE_URL) {
+	model.baseUrl = process.env.LLM_BASE_URL;
+}
 
 export interface PendingMessage {
 	userName: string;
@@ -42,13 +51,15 @@ export interface AgentRunner {
 	abort(): void;
 }
 
-async function getOpenaiApiKey(authStorage: AuthStorage): Promise<string> {
-	const key = await authStorage.getApiKey("openai");
+async function getLlmApiKey(authStorage: AuthStorage): Promise<string> {
+	if (process.env.LLM_API_KEY) return process.env.LLM_API_KEY;
+	const key = await authStorage.getApiKey(llmProvider);
 	if (!key) {
 		throw new Error(
-			"No API key found for anthropic.\n\n" +
-				"Set an API key environment variable, or use /login with Anthropic and link to auth.json from " +
-				join(homedir(), ".pi", "mom", "auth.json"),
+			`No API key found for provider "${llmProvider}".\n\n` +
+				`Set LLM_API_KEY env var, or store the key in ` +
+				join(homedir(), ".pi", "mom", "auth.json") +
+				` as { "${llmProvider}": "your-key" }`,
 		);
 	}
 	return key;
@@ -457,7 +468,7 @@ function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDi
 			tools,
 		},
 		convertToLlm,
-		getApiKey: async () => getOpenaiApiKey(authStorage),
+		getApiKey: async () => getLlmApiKey(authStorage),
 	});
 
 	// Load existing messages
