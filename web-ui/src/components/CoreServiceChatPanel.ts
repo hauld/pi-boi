@@ -103,23 +103,9 @@ class CoreServiceFileViewer extends LitElement {
 		}
 		if (this.isImage) {
 			const src = `${this.baseUrl}/file?path=${encodeURIComponent(this.path)}`;
-			return html`
-				<div class="border border-border rounded-lg overflow-hidden">
-					<div class="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30 text-xs text-muted-foreground">
-						<span>🖼️</span><span>${name}</span>
-					</div>
-					<img src=${src} class="max-w-full" alt=${name} />
-				</div>
-			`;
+			return html`<img src=${src} class="max-w-full" alt=${name} />`;
 		}
-		return html`
-			<div class="border border-border rounded-lg overflow-hidden">
-				<div class="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30 text-xs text-muted-foreground">
-					<span>📄</span><span>${name}</span>
-				</div>
-				<markdown-block .content=${"\`\`\`\n" + this.content.slice(0, 2000) + (this.content.length > 2000 ? "\n…" : "") + "\n\`\`\`"}></markdown-block>
-			</div>
-		`;
+		return html`<markdown-block .content=${"\`\`\`\n" + this.content.slice(0, 2000) + (this.content.length > 2000 ? "\n…" : "") + "\n\`\`\`"}></markdown-block>`;
 	}
 }
 

@@ -15,7 +15,7 @@ import {
 import { existsSync, readFileSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { homedir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import { MomSettingsManager, syncLogToSessionManager } from "./context.js";
 import * as log from "./log.js";
 import { createExecutor, type SandboxConfig } from "./sandbox.js";
@@ -159,7 +159,9 @@ function buildSystemPrompt(
 	users: UserInfo[],
 	skills: Skill[],
 ): string {
-	const channelPath = `${workspacePath}/${channelId}`;
+	// Normalize to forward slashes for system prompt — Windows shells accept both
+	const workspacePathFwd = workspacePath.replace(/\\/g, "/");
+	const channelPath = `${workspacePathFwd}/${channelId}`;
 	const isDocker = sandboxConfig.type === "docker";
 
 	// Format channel mappings
@@ -201,7 +203,7 @@ When mentioning users, use <@username> format (e.g., <@mario>).
 ${envDescription}
 
 ## Workspace Layout
-${workspacePath}/
+${workspacePathFwd}/
 ├── MEMORY.md                    # Global memory (all channels)
 ├── SYSTEM.md                    # Environment config log
 ├── skills/                      # Global CLI tools you create
@@ -215,15 +217,15 @@ ${workspacePath}/
 
 ## Artifacts (Interactive Canvas)
 **Rule: Any time you create an HTML, SVG, or visualization file, you MUST:**
-1. Write it to \`${workspacePath}/artifacts/files/${channelId}/\` (not to scratch or anywhere else)
+1. Write it to \`${workspacePathFwd}/artifacts/files/${channelId}/\` (not to scratch or anywhere else)
 2. Immediately call \`attach\` with that file path so the user sees it rendered inline as an interactive canvas
 
 \`\`\`bash
-mkdir -p ${workspacePath}/artifacts/files/${channelId}
+mkdir -p ${workspacePathFwd}/artifacts/files/${channelId}
 \`\`\`
 
 Then use the write tool to create the file there, then call attach:
-- \`attach\` path: \`${workspacePath}/artifacts/files/${channelId}/my-file.html\`
+- \`attach\` path: \`${workspacePathFwd}/artifacts/files/${channelId}/my-file.html\`
 - \`attach\` title: a short descriptive name like "Poem" or "Dashboard"
 
 Do NOT just tell the user the file path — always call \`attach\` so it renders in the chat.
@@ -232,7 +234,7 @@ Do NOT just tell the user the file path — always call \`attach\` so it renders
 You can create reusable CLI tools for recurring tasks (email, APIs, data processing, etc.).
 
 ### Creating Skills
-Store in \`${workspacePath}/skills/<name>/\` (global) or \`${channelPath}/skills/<name>/\` (channel-specific).
+Store in \`${workspacePathFwd}/skills/<name>/\` (global) or \`${channelPath}/skills/<name>/\` (channel-specific).
 Each skill directory needs a \`SKILL.md\` with YAML frontmatter:
 
 \`\`\`markdown
@@ -253,7 +255,7 @@ Scripts are in: {baseDir}/
 ${skills.length > 0 ? formatSkillsForPrompt(skills) : "(no skills installed yet)"}
 
 ## Events
-You can schedule events that wake you up at specific times or when external things happen. Events are JSON files in \`${workspacePath}/events/\`.
+You can schedule events that wake you up at specific times or when external things happen. Events are JSON files in \`${workspacePathFwd}/events/\`.
 
 ### Event Types
 
@@ -285,16 +287,16 @@ All \`at\` timestamps must include offset (e.g., \`+01:00\`). Periodic events us
 ### Creating Events
 Use unique filenames to avoid overwriting existing events. Include a timestamp or random suffix:
 \`\`\`bash
-cat > ${workspacePath}/events/dentist-reminder-$(date +%s).json << 'EOF'
+cat > ${workspacePathFwd}/events/dentist-reminder-$(date +%s).json << 'EOF'
 {"type": "one-shot", "channelId": "${channelId}", "text": "Dentist tomorrow", "at": "2025-12-14T09:00:00+01:00"}
 EOF
 \`\`\`
 Or check if file exists first before creating.
 
 ### Managing Events
-- List: \`ls ${workspacePath}/events/\`
-- View: \`cat ${workspacePath}/events/foo.json\`
-- Delete/cancel: \`rm ${workspacePath}/events/foo.json\`
+- List: \`ls ${workspacePathFwd}/events/\`
+- View: \`cat ${workspacePathFwd}/events/foo.json\`
+- Delete/cancel: \`rm ${workspacePathFwd}/events/foo.json\`
 
 ### When Events Trigger
 You receive a message like:
@@ -314,7 +316,7 @@ Maximum 5 events can be queued. Don't create excessive immediate or periodic eve
 
 ## Memory
 Write to MEMORY.md files to persist context across conversations.
-- Global (${workspacePath}/MEMORY.md): skills, preferences, project info
+- Global (${workspacePathFwd}/MEMORY.md): skills, preferences, project info
 - Channel (${channelPath}/MEMORY.md): channel-specific decisions, ongoing work
 Update when you learn something important or when asked to remember something.
 
@@ -322,7 +324,7 @@ Update when you learn something important or when asked to remember something.
 ${memory}
 
 ## System Configuration Log
-Maintain ${workspacePath}/SYSTEM.md to log all environment modifications:
+Maintain ${workspacePathFwd}/SYSTEM.md to log all environment modifications:
 - Installed packages (apk add, npm install, pip install)
 - Environment variables set
 - Config files modified (~/.gitconfig, cron jobs, etc.)
@@ -439,7 +441,7 @@ export function getOrCreateRunner(sandboxConfig: SandboxConfig, channelId: strin
  */
 function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDir: string): AgentRunner {
 	const executor = createExecutor(sandboxConfig);
-	const workspacePath = executor.getWorkspacePath(channelDir.replace(`/${channelId}`, ""));
+	const workspacePath = executor.getWorkspacePath(dirname(channelDir));
 
 	// Create tools
 	const tools = createMomTools(executor);
