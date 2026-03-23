@@ -121,7 +121,7 @@ const channelStates = new Map<string, ChannelState>();
 function getState(channelId: string): ChannelState {
 	let state = channelStates.get(channelId);
 	if (!state) {
-		const channelDir = join(workingDir, channelId);
+		const channelDir = join(workingDir, "sessions", channelId);
 		state = {
 			running: false,
 			runner: getOrCreateRunner(sandbox, channelId, channelDir),

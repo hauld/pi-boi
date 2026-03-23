@@ -36,6 +36,10 @@ if (process.env.LLM_BASE_URL) {
 	model.baseUrl = process.env.LLM_BASE_URL;
 }
 
+if (process.env.LLM_API_TYPE) {
+	(model as any).api = process.env.LLM_API_TYPE;
+}
+
 export interface PendingMessage {
 	userName: string;
 	text: string;
@@ -82,7 +86,8 @@ function getMemory(channelDir: string): string {
 	const parts: string[] = [];
 
 	// Read workspace-level memory (shared across all channels)
-	const workspaceMemoryPath = join(channelDir, "..", "MEMORY.md");
+	// channelDir is workspace/sessions/{channelId} — workspace is two levels up
+	const workspaceMemoryPath = join(channelDir, "..", "..", "MEMORY.md");
 	if (existsSync(workspaceMemoryPath)) {
 		try {
 			const content = readFileSync(workspaceMemoryPath, "utf-8").trim();
@@ -117,10 +122,8 @@ function getMemory(channelDir: string): string {
 function loadMomSkills(channelDir: string, workspacePath: string): Skill[] {
 	const skillMap = new Map<string, Skill>();
 
-	// channelDir is the host path (e.g., /Users/.../data/C0A34FL8PMH)
-	// hostWorkspacePath is the parent directory on host
-	// workspacePath is the container path (e.g., /workspace)
-	const hostWorkspacePath = join(channelDir, "..");
+	// channelDir is workspace/sessions/{channelId} — workspace is two levels up
+	const hostWorkspacePath = join(channelDir, "..", "..");
 
 	// Helper to translate host paths to container paths
 	const translatePath = (hostPath: string): string => {
@@ -161,7 +164,7 @@ function buildSystemPrompt(
 ): string {
 	// Normalize to forward slashes for system prompt — Windows shells accept both
 	const workspacePathFwd = workspacePath.replace(/\\/g, "/");
-	const channelPath = `${workspacePathFwd}/${channelId}`;
+	const channelPath = `${workspacePathFwd}/sessions/${channelId}`;
 	const isDocker = sandboxConfig.type === "docker";
 
 	// Format channel mappings
@@ -207,8 +210,8 @@ ${workspacePathFwd}/
 ├── MEMORY.md                    # Global memory (all channels)
 ├── SYSTEM.md                    # Environment config log
 ├── skills/                      # Global CLI tools you create
-├── artifacts/files/${channelId}/ # HTML/JS/CSS files rendered as interactive canvas in chat
-└── ${channelId}/                # This channel
+├── artifacts/${channelId}/      # HTML/JS/CSS files rendered as interactive canvas in chat
+└── sessions/${channelId}/       # This channel
     ├── MEMORY.md                # Channel-specific memory
     ├── log.jsonl                # Message history (no tool results)
     ├── attachments/             # User-shared files
@@ -217,15 +220,15 @@ ${workspacePathFwd}/
 
 ## Artifacts (Interactive Canvas)
 **Rule: Any time you create an HTML, SVG, or visualization file, you MUST:**
-1. Write it to \`${workspacePathFwd}/artifacts/files/${channelId}/\` (not to scratch or anywhere else)
+1. Write it to \`${workspacePathFwd}/artifacts/${channelId}/\` (not to scratch or anywhere else)
 2. Immediately call \`attach\` with that file path so the user sees it rendered inline as an interactive canvas
 
 \`\`\`bash
-mkdir -p ${workspacePathFwd}/artifacts/files/${channelId}
+mkdir -p ${workspacePathFwd}/artifacts/${channelId}
 \`\`\`
 
 Then use the write tool to create the file there, then call attach:
-- \`attach\` path: \`${workspacePathFwd}/artifacts/files/${channelId}/my-file.html\`
+- \`attach\` path: \`${workspacePathFwd}/artifacts/${channelId}/my-file.html\`
 - \`attach\` title: a short descriptive name like "Poem" or "Dashboard"
 
 Do NOT just tell the user the file path — always call \`attach\` so it renders in the chat.
@@ -441,7 +444,8 @@ export function getOrCreateRunner(sandboxConfig: SandboxConfig, channelId: strin
  */
 function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDir: string): AgentRunner {
 	const executor = createExecutor(sandboxConfig);
-	const workspacePath = executor.getWorkspacePath(dirname(channelDir));
+	// channelDir is workspace/sessions/{channelId} — workspace is two levels up
+	const workspacePath = executor.getWorkspacePath(dirname(dirname(channelDir)));
 
 	// Create tools
 	const tools = createMomTools(executor);

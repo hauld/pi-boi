@@ -110,7 +110,7 @@ class CoreServiceFileViewer extends LitElement {
 }
 
 type ChatMessage =
-	| { role: "user"; text: string }
+	| { role: "user"; text: string; attachments?: string[] }
 	| { role: "assistant"; text: string; thread?: string; files?: FileRef[] }
 	| { role: "error"; text: string };
 
@@ -187,7 +187,7 @@ export class CoreServiceChatPanel extends LitElement {
 
 	private async loadHistory() {
 		const msgs = await this.client.getMessages(this.channelId);
-		this.messages = msgs.map((m) => ({ role: m.role, text: m.text, thread: (m as any).thread, files: (m as any).files }));
+		this.messages = msgs.map((m) => ({ role: m.role, text: m.text, thread: (m as any).thread, files: (m as any).files, attachments: (m as any).attachments }));
 		this.autoScroll = true;
 	}
 
@@ -213,7 +213,8 @@ export class CoreServiceChatPanel extends LitElement {
 		if (!text.trim() && attachments.length === 0) return;
 		if (this.isStreaming) return;
 
-		this.messages = [...this.messages, { role: "user", text }];
+		const attachmentNames = attachments.map((a) => a.fileName);
+	this.messages = [...this.messages, { role: "user", text, attachments: attachmentNames.length > 0 ? attachmentNames : undefined }];
 		if (this._editor) {
 			this._editor.value = "";
 			this._editor.attachments = [];
@@ -362,11 +363,49 @@ export class CoreServiceChatPanel extends LitElement {
 		`;
 	}
 
+	private renderThreadBlock(block: string) {
+		const nlIdx = block.indexOf("\n");
+		const header = nlIdx === -1 ? block : block.slice(0, nlIdx);
+		const body = nlIdx === -1 ? "" : block.slice(nlIdx + 1).trim();
+		// Strip bold/italic markers: **✓ write** or *✓ write* → ✓ write
+		const cleanHeader = header.replace(/\*+/g, "");
+
+		if (!body) {
+			return html`<div class="py-0.5 text-muted-foreground">${cleanHeader}</div>`;
+		}
+		return html`
+			<details class="group">
+				<summary class="cursor-pointer flex items-center gap-1.5 py-0.5 text-muted-foreground hover:text-foreground select-none [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+					<span class="text-[10px] transition-transform duration-150 group-open:rotate-90">▶</span>
+					<span>${cleanHeader}</span>
+				</summary>
+				<div class="mt-1 ml-3.5">
+					<markdown-block .content=${body}></markdown-block>
+				</div>
+			</details>
+		`;
+	}
+
+	private renderThread(thread: string) {
+		// Split into per-tool blocks: each starts with *✓ or *✗ (streaming) or **✓ /**✗ (history)
+		const blocks = thread.split(/\n(?=\*{1,2}[✓✗])/).filter(Boolean);
+		return html`
+			<div class="flex flex-col border-l-2 border-border pl-3 text-sm">
+				${blocks.map((b) => this.renderThreadBlock(b))}
+			</div>
+		`;
+	}
+
 	private renderMessage(msg: ChatMessage) {
 		if (msg.role === "user") {
 			return html`
 				<div class="flex justify-start mx-4">
-					<div class="user-message-container py-2 px-4 rounded-xl">
+					<div class="user-message-container py-2 px-4 rounded-xl flex flex-col gap-2">
+						${msg.attachments?.map((name) => html`
+							<div class="flex items-center gap-1.5 text-xs opacity-70">
+								<span>📎</span><span class="truncate max-w-xs">${name}</span>
+							</div>
+						`)}
 						<markdown-block .content=${msg.text}></markdown-block>
 					</div>
 				</div>
@@ -376,9 +415,7 @@ export class CoreServiceChatPanel extends LitElement {
 			return html`
 				<div class="px-4 flex flex-col gap-3">
 					${msg.text ? html`<markdown-block .content=${msg.text}></markdown-block>` : ""}
-					${msg.thread
-						? html`<div class="text-sm border-l-2 border-border pl-3"><markdown-block .content=${msg.thread}></markdown-block></div>`
-						: ""}
+					${msg.thread ? this.renderThread(msg.thread) : ""}
 					${msg.files?.map((f) => this.renderFile(f))}
 				</div>
 			`;
@@ -424,9 +461,7 @@ export class CoreServiceChatPanel extends LitElement {
 					? html`<div class="text-xs text-muted-foreground italic">${this.streamingStatus}...</div>`
 					: ""}
 				${this.streamingText ? html`<markdown-block .content=${this.streamingText}></markdown-block>` : ""}
-				${this.streamingThread
-					? html`<div class="text-sm border-l-2 border-border pl-3"><markdown-block .content=${this.streamingThread}></markdown-block></div>`
-					: ""}
+				${this.streamingThread ? this.renderThread(this.streamingThread) : ""}
 				${this.streamingFiles.map((f) => this.renderFile(f))}
 			</div>
 		`;
