@@ -104,11 +104,13 @@ export interface ExecResult {
 class HostExecutor implements Executor {
 	async exec(command: string, options?: ExecOptions): Promise<ExecResult> {
 		return new Promise((resolve, reject) => {
-			const shell = process.platform === "win32" ? "cmd" : "sh";
-			const shellArgs = process.platform === "win32" ? ["/c"] : ["-c"];
+			const isWin = process.platform === "win32";
+			const shell = isWin ? "powershell" : "sh";
+			// PowerShell: -NoProfile skips slow profile load, -NonInteractive prevents prompts
+			const shellArgs = isWin ? ["-NoProfile", "-NonInteractive", "-Command"] : ["-c"];
 
 			const child = spawn(shell, [...shellArgs, command], {
-				detached: true,
+				detached: !isWin, // detached process groups don't work well on Windows
 				stdio: ["ignore", "pipe", "pipe"],
 			});
 

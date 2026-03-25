@@ -180,6 +180,14 @@ function buildSystemPrompt(
 - Bash working directory: / (use cd or absolute paths)
 - Install tools with: apk add <package>
 - Your changes persist across sessions`
+		: process.platform === "win32"
+		? `You are running directly on a Windows host machine using PowerShell.
+- Shell: PowerShell (not cmd, not bash)
+- Working directory: ${process.cwd()}
+- Use forward slashes or double-backslashes in paths: C:/Users/... or C:\\Users\\...
+- Use PowerShell syntax: New-Item -ItemType Directory -Force -Path <dir> (or just mkdir <dir>)
+- For multi-line or complex scripts, use PowerShell idioms
+- Be careful with system modifications`
 		: `You are running directly on the host machine.
 - Bash working directory: ${process.cwd()}
 - Be careful with system modifications`;
@@ -223,8 +231,9 @@ ${workspacePathFwd}/
 1. Write it to \`${workspacePathFwd}/artifacts/${channelId}/\` (not to scratch or anywhere else)
 2. Immediately call \`attach\` with that file path so the user sees it rendered inline as an interactive canvas
 
-\`\`\`bash
+\`\`\`
 mkdir -p ${workspacePathFwd}/artifacts/${channelId}
+# On Windows PowerShell: mkdir ${workspacePathFwd}/artifacts/${channelId} -Force
 \`\`\`
 
 Then use the write tool to create the file there, then call attach:
